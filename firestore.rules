@@ -1,0 +1,61 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isPlanner() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'planner'];
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Hangars collection
+    match /hangars/{hangarId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isPlanner();
+      allow delete: if isAdmin();
+    }
+
+    // Hangar Slots collection
+    match /slots/{slotId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isPlanner();
+      allow delete: if isAdmin();
+    }
+
+    // Maintenance Schedules collection
+    match /schedules/{scheduleId} {
+      allow read: if isAuthenticated();
+      allow create: if isPlanner();
+      allow update: if isPlanner();
+      allow delete: if isPlanner();
+    }
+
+    // Aircraft collection
+    match /aircraft/{aircraftId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isPlanner();
+      allow delete: if isAdmin();
+    }
+  }
+}
